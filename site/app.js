@@ -136,13 +136,13 @@
     state.researchLayer=L.layerGroup().addTo(map);
     state.drawingLayer=L.layerGroup().addTo(map);
     drawBoxes(); drawResearch();
-    map.on('moveend zoomend', () => { if (state.activeLayers.osmFeatures) scheduleFetchOSM(); updateLayerHints(); });
+    map.on('moveend zoomend', () => { $('#map-context').textContent='20-MILE STUDY AREA · Z'+map.getZoom(); if (state.activeLayers.osmFeatures) scheduleFetchOSM(); updateLayerHints(); });
     map.on('click', e => {
       if (!state.drawActive) return;
       state.drawPoints.push([+e.latlng.lat.toFixed(6),+e.latlng.lng.toFixed(6)]);
       redrawInProgress(); renderDetails();
     });
-    $('#map-context').textContent='20-MILE STUDY AREA';
+    $('#map-context').textContent='20-MILE STUDY AREA · Z' + map.getZoom();
     scheduleFetchOSM();
     fetchRegionalBoxes();
     updateLayerHints();
