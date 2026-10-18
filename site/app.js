@@ -23,8 +23,6 @@
   };
   let baseTiles = null;
   let toastTimeout = null;
-  let usingVector = false;
-  let vectorLoaded = false;
   let baseErrors = 0;
   let railwayErrors = 0;
   function mapHealth(message) {
@@ -34,7 +32,6 @@
     el.hidden = !message;
   }
   function rasterBasemap(map) {
-    usingVector = false;
     if (baseTiles && map.hasLayer(baseTiles)) map.removeLayer(baseTiles);
     baseTiles = L.tileLayer(URLS.base, {
       maxZoom:19,
@@ -47,47 +44,7 @@
       if (++baseErrors === 3) mapHealth('Background tiles could not load. Check whether your browser blocks third-party mapping requests.');
     });
   }
-  function addBasemap(map) {
-    if (typeof window.openFreeMapLayer !== 'function') { rasterBasemap(map); return; }
-    try {
-      baseTiles = window.openFreeMapLayer({style:URLS[state.mapStyle+'Vector']}).addTo(map);
-      usingVector = true;
-      const vector = baseTiles.getMaplibreMap();
-      if (!vector) throw new Error('Vector map unavailable');
-      vector.on('load', () => {vectorLoaded = true; mapHealth('');});
-      let vectorErrors = 0;
-      vector.on('error', e => {
-        console.warn('Vector map request error',e.error);
-        if (!vectorLoaded && ++vectorErrors >= 3) {
-          mapHealth('Vector mapping unavailable. Switching to raster tiles.');
-          rasterBasemap(map);
-        }
-      });
-      setTimeout(() => {
-        if (usingVector && !vectorLoaded) {
-          console.warn('Vector map did not finish initialising.');
-          rasterBasemap(map);
-        }
-      },14000);
-    } catch (error) {
-      console.warn('OpenFreeMap unavailable; using raster tiles', error);
-      rasterBasemap(map);
-    }
-  }
-
-  function layerHint(name, text) {
-    const el = document.querySelector('[data-layer-hint="' + name + '"]');
-    if (el) el.textContent = text;
-  }
-  function updateLayerHints() {
-    const zoom=state.map?.getZoom() ?? 0;
-    layerHint('railways', state.activeLayers.railways ? (railwayErrors>=4?'Tile service unavailable':'Track infrastructure · OpenRailwayMap') : 'Hidden');
-    layerHint('signalTiles', state.activeLayers.signalTiles ? (zoom<15?'Zoom to level 15+ for signal detail':'OSM signal symbols · not live') : 'Mapped equipment · not live');
-    layerHint('boxes', state.activeLayers.boxes ? 'Five pinned boxes · selectable' : 'Hidden');
-    layerHint('radius', state.activeLayers.radius ? '20-mile study boundary visible' : 'Hidden');
-    layerHint('osmFeatures', state.activeLayers.osmFeatures ? (zoom<15?'Zoom to level 15+ for individual signals':state.fetchInProgress?'Fetching mapped equipment':state.OSM.length?`${state.OSM.length} mapped signals and points`:'Mapped equipment · query on zoom') : 'Hidden');
-    layerHint('drafts', state.activeLayers.drafts ? (state.research.length?`${state.research.length} unverified research drafts`:'No drafts saved yet') : 'Hidden');
-  }
+  function addBasemap(map) { rasterBasemap(map); }
   function escapeHTML(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function validURL(s) { try { const u = new URL(s); return ['http:','https:'].includes(u.protocol); } catch { return false; } }
   function number(value) { return Number(value).toLocaleString('en-GB'); }
@@ -338,14 +295,7 @@
       if(!state.map)return;
       const style=el.dataset.mapStyle;if(state.mapStyle===style)return;
       state.mapStyle=style;
-      if (usingVector && baseTiles?.getMaplibreMap) {
-        vectorLoaded = false;
-        const vector = baseTiles.getMaplibreMap();
-        vector.setStyle(URLS[style+'Vector']);
-        vector.once('styledata',()=>{ vectorLoaded=true; mapHealth(''); });
-      } else {
-        baseTiles?.getContainer()?.classList.toggle('atlas-basemap-dark',style==='dark');
-      }
+      baseTiles?.getContainer()?.classList.toggle('atlas-basemap-dark',style==='dark');
       $$('[data-map-style]').forEach(x=>x.classList.toggle('mode-active',x.dataset.mapStyle===style));
     }));
   }
