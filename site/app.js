@@ -15,12 +15,65 @@
   };
   const FIXED_ORDER = ['edgeley-1','edgeley-2','stockport-1','stockport-2','heaton-norris'];
   const URLS = {
+    darkVector: 'https://tiles.openfreemap.org/styles/dark',
+    lightVector: 'https://tiles.openfreemap.org/styles/positron',
     base: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     railway: 'https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
     signals: 'https://tiles.openrailwaymap.org/signals/{z}/{x}/{y}.png'
   };
   let baseTiles = null;
   let toastTimeout = null;
+  let usingVector = false;
+  let vectorLoaded = false;
+  let baseErrors = 0;
+  let railwayErrors = 0;
+  function mapHealth(message) {
+    const el = $('#map-health');
+    if (!el) return;
+    el.textContent = message || '';
+    el.hidden = !message;
+  }
+  function rasterBasemap(map) {
+    usingVector = false;
+    if (baseTiles && map.hasLayer(baseTiles)) map.removeLayer(baseTiles);
+    baseTiles = L.tileLayer(URLS.base, {
+      maxZoom:19,
+      referrerPolicy:'strict-origin-when-cross-origin',
+      className:'atlas-basemap' + (state.mapStyle === 'dark' ? ' atlas-basemap-dark' : ''),
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    }).addTo(map);
+    baseTiles.bringToBack();
+    baseTiles.on('tileerror', () => {
+      if (++baseErrors === 3) mapHealth('Background tiles could not load. Check whether your browser blocks third-party mapping requests.');
+    });
+  }
+  function addBasemap(map) {
+    if (typeof window.openFreeMapLayer !== 'function') { rasterBasemap(map); return; }
+    try {
+      baseTiles = window.openFreeMapLayer({style:URLS[state.mapStyle+'Vector']}).addTo(map);
+      usingVector = true;
+      const vector = baseTiles.getMaplibreMap();
+      if (!vector) throw new Error('Vector map unavailable');
+      vector.on('load', () => {vectorLoaded = true; mapHealth('');});
+      let vectorErrors = 0;
+      vector.on('error', e => {
+        console.warn('Vector map request error',e.error);
+        if (!vectorLoaded && ++vectorErrors >= 3) {
+          mapHealth('Vector mapping unavailable. Switching to raster tiles.');
+          rasterBasemap(map);
+        }
+      });
+      setTimeout(() => {
+        if (usingVector && !vectorLoaded) {
+          console.warn('Vector map did not finish initialising.');
+          rasterBasemap(map);
+        }
+      },14000);
+    } catch (error) {
+      console.warn('OpenFreeMap unavailable; using raster tiles', error);
+      rasterBasemap(map);
+    }
+  }
   function escapeHTML(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function validURL(s) { try { const u = new URL(s); return ['http:','https:'].includes(u.protocol); } catch { return false; } }
   function number(value) { return Number(value).toLocaleString('en-GB'); }
@@ -39,9 +92,17 @@
     $('#map').innerHTML='';
     const map=L.map('map',{zoomControl:true,attributionControl:true,preferCanvas:true,worldCopyJump:false,minZoom:7,maxZoom:19}).setView(centre,13);
     state.map=map;
-    baseTiles=L.tileLayer(URLS.base,{maxZoom:19,className:'atlas-basemap atlas-basemap-dark',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'}).addTo(map);
-    state.railLayer=L.tileLayer(URLS.railway,{maxZoom:19,opacity:.88,attribution:'Style: <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a> (CC BY-SA), data: OpenStreetMap contributors'}).addTo(map);
-    state.signalTileLayer=L.tileLayer(URLS.signals,{maxZoom:19,opacity:.9,attribution:'OpenRailwayMap signals, static OSM data'});
+    if (window.ResizeObserver) {
+      const observer = new ResizeObserver(() => requestAnimationFrame(() => map.invalidateSize({pan:false,animate:false})));
+      observer.observe($('#map'));
+    }
+    requestAnimationFrame(() => map.invalidateSize({pan:false,animate:false}));
+    addBasemap(map);
+    state.railLayer=L.tileLayer(URLS.railway,{maxZoom:19,opacity:.88,referrerPolicy:'strict-origin-when-cross-origin',attribution:'Style: <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a> (CC BY-SA), data: OpenStreetMap contributors'}).addTo(map);
+    state.railLayer.on('tileerror',() => {
+      if (++railwayErrors === 4) mapHealth('OpenRailwayMap railway tiles could not load. Try again later or turn off the railway overlay.');
+    });
+    state.signalTileLayer=L.tileLayer(URLS.signals,{maxZoom:19,opacity:.9,referrerPolicy:'strict-origin-when-cross-origin',attribution:'OpenRailwayMap signals, static OSM data'});
     state.studyLayer=L.circle(centre,{radius:radiusMetres,weight:2,color:'#62adc6',dashArray:'7 8',opacity:.75,fillColor:'#5294c6',fillOpacity:.018,interactive:false}).addTo(map);
     L.circleMarker(centre,{radius:5,color:'#eafaff',weight:2,fillColor:'#66c2ef',fillOpacity:.9}).addTo(map).bindTooltip('Stockport station · centre of study', {className:'map-label',direction:'bottom',offset:[0,8]});
     state.boxesLayer=L.layerGroup().addTo(map);
@@ -240,8 +301,14 @@
       if(!state.map)return;
       const style=el.dataset.mapStyle;if(state.mapStyle===style)return;
       state.mapStyle=style;
-      // Change only the base-map appearance: preserve tile requests and railway overlays.
-      baseTiles.getContainer()?.classList.toggle('atlas-basemap-dark',style==='dark');
+      if (usingVector && baseTiles?.getMaplibreMap) {
+        vectorLoaded = false;
+        const vector = baseTiles.getMaplibreMap();
+        vector.setStyle(URLS[style+'Vector']);
+        vector.once('styledata',()=>{ vectorLoaded=true; mapHealth(''); });
+      } else {
+        baseTiles?.getContainer()?.classList.toggle('atlas-basemap-dark',style==='dark');
+      }
       $$('[data-map-style]').forEach(x=>x.classList.toggle('mode-active',x.dataset.mapStyle===style));
     }));
   }
