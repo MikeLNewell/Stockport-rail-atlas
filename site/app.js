@@ -15,8 +15,7 @@
   };
   const FIXED_ORDER = ['edgeley-1','edgeley-2','stockport-1','stockport-2','heaton-norris'];
   const URLS = {
-    dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    base: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     railway: 'https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
     signals: 'https://tiles.openrailwaymap.org/signals/{z}/{x}/{y}.png'
   };
@@ -40,7 +39,7 @@
     $('#map').innerHTML='';
     const map=L.map('map',{zoomControl:true,attributionControl:true,preferCanvas:true,worldCopyJump:false,minZoom:7,maxZoom:19}).setView(centre,13);
     state.map=map;
-    baseTiles=L.tileLayer(URLS.dark,{maxZoom:19,subdomains:'abcd',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(map);
+    baseTiles=L.tileLayer(URLS.base,{maxZoom:19,className:'atlas-basemap atlas-basemap-dark',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'}).addTo(map);
     state.railLayer=L.tileLayer(URLS.railway,{maxZoom:19,opacity:.88,attribution:'Style: <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a> (CC BY-SA), data: OpenStreetMap contributors'}).addTo(map);
     state.signalTileLayer=L.tileLayer(URLS.signals,{maxZoom:19,opacity:.9,attribution:'OpenRailwayMap signals, static OSM data'});
     state.studyLayer=L.circle(centre,{radius:radiusMetres,weight:2,color:'#62adc6',dashArray:'7 8',opacity:.75,fillColor:'#5294c6',fillOpacity:.018,interactive:false}).addTo(map);
@@ -241,9 +240,8 @@
       if(!state.map)return;
       const style=el.dataset.mapStyle;if(state.mapStyle===style)return;
       state.mapStyle=style;
-      state.map.removeLayer(baseTiles);
-      baseTiles=L.tileLayer(URLS[style],{maxZoom:19,subdomains:'abcd',attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(state.map);
-      baseTiles.bringToBack();
+      // Change only the base-map appearance: preserve tile requests and railway overlays.
+      baseTiles.getContainer()?.classList.toggle('atlas-basemap-dark',style==='dark');
       $$('[data-map-style]').forEach(x=>x.classList.toggle('mode-active',x.dataset.mapStyle===style));
     }));
   }
