@@ -26,7 +26,7 @@ input[type=checkbox]{accent-color:#358bb8;height:18px;width:18px;flex:none}
 #vector{position:absolute;inset:0;z-index:1;visibility:hidden}
 #vector.ready{visibility:visible}
 #fallback{position:absolute;inset:0;z-index:0;width:100%;height:100%;background:linear-gradient(160deg,#e7edeb,#c8d8dc)}
-#fallback svg{height:100%;width:100%}
+#fallback svg{height:100%;width:100%;display:block}
 .map-title{position:absolute;z-index:3;left:16px;top:16px;max-width:min(400px,60%);border:1px solid #aac4d1;background:#ffffffed;border-radius:10px;padding:13px 17px;color:#122b42;box-shadow:0 6px 22px #182c3b24}
 .map-title strong{display:block;font-size:17px;margin-bottom:5px}.map-title span{font-size:11px;color:#557084}
 .map-status{position:absolute;z-index:4;bottom:16px;left:15px;right:15px;max-width:630px;border:1px solid #b3c8d4;background:#ffffffef;padding:10px 14px;border-radius:8px;color:#233e54;font-size:11px;line-height:1.5}
@@ -143,18 +143,34 @@ async function geographicalMap(){if(!$('#show-map').checked){say('Reference view
  }catch(e){say('Map display unavailable: '+e.message+' · local reference view retained',true);return}
  state.map=m;m.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
  let loaded=false;
- m.on('load',()=>{loaded=true;$('#vector').classList.add('ready');$('#fallback').hidden=true;addLayers();say('Open-source map loaded · railway linework coverage: '+(state.rail?.features?.length||0)+' locally held segments');});
+ m.on('load',()=>{addLayers();say('Vector map initialised; checking that real map geography rendered…');});
+ let geographicalFeatures=false;
+ m.on('idle',()=>{
+   if(geographicalFeatures)return;
+   try {
+     const records=m.queryRenderedFeatures();
+     geographicalFeatures=records.some(f=>f.source!=='study'&&f.source!=='tracks'&&f.source!=='equipment');
+   }catch(error){console.warn('Map render verification failed',error)}
+   if(geographicalFeatures){
+     loaded=true;
+     $('#vector').classList.add('ready');
+     $('#fallback').hidden=true;
+     addLayers();
+     say('Open-source geographic map ready · locally stored railway segments: '+(state.rail?.features?.length||0));
+   }
+ });
  m.on('error',e=>{console.warn('Map style or tile error',e.error);if(!loaded)say('Geographical map tiles not ready. Local signal-box view remains available.',true)});
  m.on('style.load',()=>{if(loaded)addLayers()});
  new ResizeObserver(()=>m.resize()).observe($('#geo'));
- setTimeout(()=>{if(!loaded){try{m.remove()}catch{}state.map=null;$('#vector').classList.remove('ready');$('#fallback').hidden=false;say('Geographical service unavailable. Showing accurate reference locations instead.',true)}},12500);
+ setTimeout(()=>{if(!loaded){try{m.remove()}catch{}state.map=null;$('#vector').classList.remove('ready');$('#fallback').hidden=false;say('Geographic tiles were not confirmed. Reference signal-box schematic shown instead; not a physical track plan.',true)}},12500);
 }
 function onToggle(){markers();if(state.map)addLayers();if(!$('#show-map').checked){$('#vector').classList.remove('ready');$('#fallback').hidden=false} else if(state.map){$('#vector').classList.add('ready');$('#fallback').hidden=true}else if(state.dataReady)void geographicalMap();$('#offline-svg').style.opacity=$('#show-boxes').checked?'1':'.48';}
 function displayEvents(payload){if(!payload||!Array.isArray(payload.events))return;
  const age=Date.now()-new Date(payload.generated_at).getTime();
- const stale=!Number.isFinite(age)||age>120000||age< -30000;
- $('#feed-status').textContent=stale?'LIVE TD · STALE':'TD EVENTS · CONNECTED';
- $('#live-summary').textContent=stale?'Feed response is older than 2 minutes; movements are not presented as current.':'Received '+payload.events.length+' recent berth movements. These are train descriptions, not GPS positions.';
+ const recentEvent=payload.events.length ? Math.max(...payload.events.map(e=>Date.parse(e.event_time)||0)) : 0;
+ const stale=!Number.isFinite(age)||age>120000||age< -30000||!recentEvent||Date.now()-recentEvent>180000||payload.status==='no_recent_events';
+ $('#feed-status').textContent=stale?'LIVE TD · NO RECENT MOVEMENTS':'TD EVENTS · RECENT';
+ $('#live-summary').textContent=stale?'No verified recent movement observations. The endpoint may be idle or the feed disconnected.':'Received '+payload.events.length+' berth observations. These are train descriptions, not GPS positions.';
  const all=payload.events.slice(0,35);
  $('#events-list').className='';
  $('#events-list').innerHTML=all.length?all.map(e=>'<div class="event">'+clean(e.description||'Unknown')+' · '+clean(e.area_id||'?')+' · '+clean(e.msg_type||'?')+'<small>'+clean(e.from_berth||'–')+' → '+clean(e.to_berth||'–')+' · '+clean(e.event_time||'')+'</small></div>').join(''):'No recent events';
