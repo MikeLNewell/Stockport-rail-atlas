@@ -212,7 +212,7 @@ async function start(){
  fallback();
  $('#view-region').addEventListener('click',()=>svgView('region'));
  $('#view-corridor').addEventListener('click',()=>svgView('corridor'));
- $('#rail-note').textContent=rail?.features?.length?rail.features.length+' local OSM track segments':'Track data import pending; do not infer routes';
+ $('#rail-note').textContent=rail?.features?.length?rail.features.length+' local railway reference segments':'Track data import pending; do not infer routes';
  $('#equipment-note').textContent=equipment?.features?.length?equipment.features.length+' mapped assets':'No verified equipment records yet';
  say('Five reference locations loaded. Starting open-source geographical map…');
  document.querySelectorAll('input').forEach(el=>el.addEventListener('change',onToggle));
