@@ -1,0 +1,6 @@
+{
+  "readEndpoint": null,
+  "pollSeconds": 15,
+  "configured": false,
+  "note": "Set readEndpoint to an HTTPS URL of the published Supabase Edge Function when service role and TD worker are configured. Never place API secrets here."
+}
