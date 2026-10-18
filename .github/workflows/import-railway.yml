@@ -1,0 +1,39 @@
+name: Import open railway geography
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/import-railway.mjs'
+      - '.github/workflows/import-railway.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-open-railway
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download ODbL railway geometry with validation
+        run: node scripts/import-railway.mjs
+      - name: Commit validated geometry if changed
+        run: |
+          git config user.name "stockport-atlas-bot"
+          git config user.email "stockport-atlas-bot@users.noreply.github.com"
+          git add site/data/railway.geojson
+          if ! git diff --cached --quiet; then
+            git commit -m "Update local railway track geometry from OpenStreetMap"
+            git push
+          fi
