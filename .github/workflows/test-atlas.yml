@@ -1,0 +1,36 @@
+name: Validate atlas and Train Describer code
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - 'tests/**'
+      - 'site/data/**'
+      - 'scripts/**'
+      - '.github/workflows/test-atlas.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check all Node source syntax
+        run: |
+          node --check worker/td-parser.cjs
+          node --check worker/td-state.cjs
+          node --check worker/td-bridge.cjs
+          node --check scripts/import-railway.mjs
+      - name: Run tests for train descriptions and static locations
+        run: node --test tests/*.test.cjs
+      - name: Validate local map JSON
+        run: |
+          node -e "for (const n of ['site/data/railway.geojson','site/data/equipment.geojson','site/data/stockport-boxes.json','site/data/live-config.json']) JSON.parse(require('fs').readFileSync(n,'utf8'));"
