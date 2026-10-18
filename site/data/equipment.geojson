@@ -1,0 +1,9 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "status": "pending",
+    "description": "Signal and point locations await traceable source data; absence is intentional.",
+    "source": "OpenStreetMap and verified signalling references"
+  },
+  "features": []
+}
