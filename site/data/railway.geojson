@@ -1,0 +1,11 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "status": "pending",
+    "source": "OpenStreetMap railway=rail geometries",
+    "coverage": "No track segments imported yet. Do not infer alignment from a signal-box sequence.",
+    "licence": "ODbL",
+    "last_checked": "2026-10-18"
+  },
+  "features": []
+}
