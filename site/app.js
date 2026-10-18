@@ -362,7 +362,7 @@
     } catch(error) {
       console.error('Map initialisation problem:',error);
       $('#map').innerHTML='<div class="map-placeholder">Map could not initialise. Signal-box records remain available in the sidebar.</div>';
-      mapHealth('Map initialisation failed; please reload the page.');
+      mapHealth('Map start-up error: '+String(error && error.message ? error.message : error).slice(0,220));
     }
   }
   start();
