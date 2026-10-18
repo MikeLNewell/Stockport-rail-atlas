@@ -25,7 +25,7 @@ input[type=checkbox]{accent-color:#358bb8;height:18px;width:18px;flex:none}
 #geo{position:absolute;inset:0;width:100%;height:100%}
 #vector{position:absolute;inset:0;z-index:1;visibility:hidden}
 #vector.ready{visibility:visible}
-#fallback{position:absolute;left:17px;bottom:86px;z-index:5;width:min(425px,85%);height:315px;border:1px solid #a3bccd;border-radius:10px;overflow:hidden;background:#e3ecee;box-shadow:0 12px 30px #122d3a38}
+#fallback{position:absolute;inset:0;z-index:2;width:100%;height:100%;overflow:hidden;background:#e3ecee}
 #fallback svg{height:100%;width:100%;display:block}
 .map-title{position:absolute;z-index:3;left:16px;top:16px;max-width:min(400px,60%);border:1px solid #aac4d1;background:#ffffffed;border-radius:10px;padding:13px 17px;color:#122b42;box-shadow:0 6px 22px #182c3b24}
 .map-title strong{display:block;font-size:17px;margin-bottom:5px}.map-title span{font-size:11px;color:#557084}
@@ -40,7 +40,7 @@ input[type=checkbox]{accent-color:#358bb8;height:18px;width:18px;flex:none}
 .empty{border:1px dashed #415b74;border-radius:8px;padding:16px 12px;color:#b3c6d7;font-size:12px;line-height:1.6}
 .hint{font-size:11px;color:#90a9bc;line-height:1.55;margin:8px 0 12px}
 .bubble{background:#17324c;color:#eff9ff;border:2px solid #fff;border-radius:8px;padding:5px 7px;font-size:10px;font-weight:700;box-shadow:0 3px 10px #0018}
-.map-status[hidden]{display:none}
+#fallback[hidden],.map-status[hidden]{display:none}
 @media(max-width:1100px){main{grid-template-columns:245px minmax(0,1fr)}.panel{display:none}}
 @media(max-width:700px){header{height:59px;padding:0 12px}.tag,.pill{display:none}main{height:calc(100dvh - 59px);display:flex;flex-direction:column}aside{height:190px;flex:none;display:block;padding:12px;overflow:auto}.viewport{flex:1;min-height:340px}.section{margin:10px 0}.map-title{max-width:74%}.map-title strong{font-size:14px}}
 </style>
@@ -53,7 +53,7 @@ input[type=checkbox]{accent-color:#358bb8;height:18px;width:18px;flex:none}
 <main>
 <aside>
 <h2>STOCKPORT NETWORK</h2>
-<div class="control"><div><strong>Open-source geographical map</strong><small>OpenFreeMap vector cartography</small></div><input type="checkbox" id="show-map" checked aria-label="Enable geographic basemap"></div>
+<div class="control"><div><strong>Street-map background (optional)</strong><small>OpenFreeMap · railway SVG works without it</small></div><input type="checkbox" id="show-map" aria-label="Enable geographic basemap"></div>
 <div class="control"><div><strong>Railway linework</strong><small id="rail-note">Locally stored OpenStreetMap geometry</small></div><input type="checkbox" id="show-rail" checked aria-label="Show railway linework"></div>
 <div class="control"><div><strong>Signal boxes</strong><small>Five documented Stockport locations</small></div><input type="checkbox" id="show-boxes" checked aria-label="Show signal boxes"></div>
 <div class="control"><div><strong>20-mile study boundary</strong><small>32.19 km geographical radius</small></div><input type="checkbox" id="show-radius" checked aria-label="Show study boundary"></div>
@@ -69,6 +69,7 @@ input[type=checkbox]{accent-color:#358bb8;height:18px;width:18px;flex:none}
 <div id="vector"></div>
 </div>
 <div class="map-title"><strong>Stockport rail network</strong><span id="subtitle">20-mile area · geographical overview</span></div>
+<div style="position:absolute;right:14px;bottom:74px;z-index:6;display:flex;gap:7px"><button id="view-region" style="background:#fff;border:1px solid #90b2c9;border-radius:7px;padding:9px;color:#193a52">20-mile area</button><button id="view-corridor" style="background:#fff;border:1px solid #90b2c9;border-radius:7px;padding:9px;color:#193a52">Stockport corridor</button></div>
 <div class="map-status" id="map-status" role="status">Loading local map records…</div>
 </section>
 <section class="panel">
@@ -88,10 +89,11 @@ input[type=checkbox]{accent-color:#358bb8;height:18px;width:18px;flex:none}
 'use strict';
 const $=s=>document.querySelector(s);
 const CENTRE=[53.40545,-2.16304];
+let svgZoom='region';
 const state={boxes:[],study:null,rail:null,equipment:null,map:null,markers:[],dataReady:false,liveConfig:null,activeTrain:null};
 function say(message,warning=false){const el=$('#map-status');el.textContent=message;el.classList.toggle('warn',warning);}
 function clean(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));}
-function point(lat,lon){const cx=CENTRE[1],cy=CENTRE[0];return [400+(lon-cx)*14000,300-(lat-cy)*14000];}
+function point(lat,lon){const cx=CENTRE[1],cy=CENTRE[0];return [400+(lon-cx)*760,300-(lat-cy)*760];}
 function circleFeature(center,radiusMetres){const ring=[],lat=center[0]*Math.PI/180;for(let i=0;i<=128;i++){const theta=i*Math.PI/64;ring.push([center[1]+radiusMetres*Math.cos(theta)/(111320*Math.cos(lat)),center[0]+radiusMetres*Math.sin(theta)/111320]);}return {type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Polygon',coordinates:[ring]},properties:{}}]};}
 function selectBox(id){const b=state.boxes.find(x=>x.id===id);if(!b)return;
  $('#detail-heading').textContent=b.name;$('#detail-info').textContent=b.description||'Reference signalling location.';
@@ -100,17 +102,38 @@ function selectBox(id){const b=state.boxes.find(x=>x.id===id);if(!b)return;
  if(state.map)state.map.flyTo({center:[b.coordinates[1],b.coordinates[0]],zoom:15.6,essential:true});
 }
 function fallback(){
- const svg=$('#offline-svg');let parts=['<rect x="0" y="0" width="800" height="600" fill="#dde8e8"/>'];
- for(let x=0;x<=800;x+=50)parts.push('<path d="M'+x+' 0V600" stroke="#c6d8db" stroke-width="1"/>');
- for(let y=0;y<=600;y+=50)parts.push('<path d="M0 '+y+'H800" stroke="#c6d8db" stroke-width="1"/>');
- parts.push('<text x="400" y="57" text-anchor="middle" fill="#54728a" font-size="17">REFERENCE LOCATIONS · BASEMAP UNAVAILABLE</text>');
- const ordered=[...state.boxes].sort((a,b)=>b.coordinates[0]-a.coordinates[0]);
- const points=ordered.map(b=>({b,xy:point(b.coordinates[0],b.coordinates[1])}));
- // Dashed connecting line is conceptual, not an asserted physical track alignment.
- parts.push('<polyline points="'+points.map(p=>p.xy.join(',')).join(' ')+'" fill="none" stroke="#678ba5" stroke-width="3" stroke-dasharray="7 8"/>');
- parts.push('<text x="400" y="568" text-anchor="middle" fill="#557587" font-size="13">DASHED CONNECTIONS SHOW BOX SEQUENCE ONLY, NOT TRACK ALIGNMENT</text>');
- for(const o of points){const x=o.xy[0],y=o.xy[1];parts.push('<g class="pin" data-ref="'+clean(o.b.id)+'"><circle cx="'+x+'" cy="'+y+'" r="9" fill="#127fb4" stroke="#fff" stroke-width="2"/><text x="'+(x+13)+'" y="'+(y-9)+'" font-size="15" font-weight="700" fill="#183b53">'+clean(o.b.short||o.b.name)+'</text></g>');}
- svg.innerHTML=parts.join('');svg.querySelectorAll('[data-ref]').forEach(el=>el.addEventListener('click',()=>selectBox(el.dataset.ref)));
+ const svg=$('#offline-svg');
+ const rail=state.rail?.features||[];
+ const parts=['<rect width="800" height="600" fill="#e5edee"/>'];
+ for(let x=0;x<=800;x+=50)parts.push('<path d="M'+x+' 0V600" stroke="#c5d7dc" stroke-width=".7"/>');
+ for(let y=0;y<=600;y+=50)parts.push('<path d="M0 '+y+'H800" stroke="#c5d7dc" stroke-width=".7"/>');
+ // This ellipse is the approximately projected 20-mile boundary, not a control area.
+ const rx=state.study.radiusMetres/(111320*Math.cos(CENTRE[0]*Math.PI/180))*760;
+ const ry=state.study.radiusMetres/111320*760;
+ if($('#show-radius').checked)parts.push('<ellipse cx="400" cy="300" rx="'+rx.toFixed(1)+'" ry="'+ry.toFixed(1)+'" fill="none" stroke="#3386a8" stroke-width="2" stroke-dasharray="7 5"/>');
+ if($('#show-rail').checked)for(const f of rail){
+  if(f.geometry?.type!=='LineString')continue;
+  const coords=f.geometry.coordinates||[];
+  if(coords.length<2)continue;
+  const d=coords.map((p,i)=>{const xy=point(p[1],p[0]);return (i?'L':'M')+xy[0].toFixed(2)+' '+xy[1].toFixed(2)}).join(' ');
+  parts.push('<path d="'+d+'" fill="none" stroke="#b47226" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>');
+ }
+ parts.push('<text x="400" y="38" font-size="14" text-anchor="middle" fill="#28516a">STOCKPORT RAILWAY REFERENCE LINES · NETWORK RAIL GIS</text>');
+ parts.push('<text x="400" y="581" font-size="11" text-anchor="middle" fill="#365c6d">SIMPLIFIED REFERENCE ALIGNMENTS · NOT A SIGNALLING CONTROL PLAN</text>');
+ if($('#show-boxes').checked)for(const b of state.boxes){
+  const xy=point(b.coordinates[0],b.coordinates[1]);
+  parts.push('<g class="pin" data-ref="'+clean(b.id)+'"><circle data-dot cx="'+xy[0].toFixed(2)+'" cy="'+xy[1].toFixed(2)+'" r="4.5" fill="#008cbb" stroke="white" stroke-width="1.6"/><text data-name x="'+(xy[0]+7).toFixed(2)+'" y="'+(xy[1]-3).toFixed(2)+'" font-size="3.2" fill="#0d3850" font-weight="700">'+clean(b.short||b.name)+'</text></g>');
+ }
+ svg.innerHTML=parts.join('');
+ svg.querySelectorAll('[data-ref]').forEach(el=>el.addEventListener('click',()=>selectBox(el.dataset.ref)));
+ svgView(svgZoom);
+}
+function svgView(mode){
+ svgZoom=mode;
+ const svg=$('#offline-svg');if(!svg)return;
+ svg.setAttribute('viewBox',mode==='corridor'?'384 282 32 38':'0 0 800 600');
+ svg.querySelectorAll('[data-dot]').forEach(el=>{el.setAttribute('r',mode==='corridor'?'.65':'4.5');el.setAttribute('stroke-width',mode==='corridor'?'.15':'1.6')});
+ svg.querySelectorAll('[data-name]').forEach(el=>{el.setAttribute('font-size',mode==='corridor'?'1.15':'3.2');el.style.display=mode==='corridor'?'':'none'});
 }
 function markers(){if(!state.map||!window.maplibregl)return;state.markers.forEach(m=>m.remove());state.markers=[];
  if(!$('#show-boxes').checked)return;
@@ -134,7 +157,7 @@ async function json(path){const r=await fetch(path,{cache:'no-cache'});if(!r.ok)
 async function fetchOptional(path){try{return await json(path)}catch(e){console.warn('Optional local mapping dataset unavailable',path,e.message);return null}}
 function drawBoxList(){const list=$('#box-list');list.innerHTML='';state.boxes.forEach(b=>{const button=document.createElement('button');button.className='box-btn';button.dataset.box=b.id;button.textContent=b.name;const meta=document.createElement('small');meta.textContent='Control area not yet verified';button.append(meta);button.addEventListener('click',()=>selectBox(b.id));list.append(button)})}
 function loadLibrary(url,timeout=9000){return new Promise(resolve=>{if(window.maplibregl)return resolve(true);const script=document.createElement('script');script.src=url;script.async=true;let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);resolve(ok)};script.onerror=()=>finish(false);script.onload=()=>finish(!!window.maplibregl);const timer=setTimeout(()=>finish(false),timeout);document.head.append(script)})}
-async function geographicalMap(){if(!$('#show-map').checked){say('Reference view selected. Enable the geographical basemap to try OpenFreeMap.');return}
+async function geographicalMap(){if(!$('#show-map').checked){say('Local open railway linework displayed · '+(state.rail?.features?.length||0)+' segments. OpenFreeMap street background is optional.');return}
  let ready=await loadLibrary('https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.js',9000);
  if(!ready)ready=await loadLibrary('https://unpkg.com/maplibre-gl@5.12.0/dist/maplibre-gl.js',9000);
  if(!ready){say('Map library unavailable. Local signal-box reference view remains available.',true);return}
@@ -154,7 +177,7 @@ async function geographicalMap(){if(!$('#show-map').checked){say('Reference view
    if(geographicalFeatures){
      loaded=true;
      $('#vector').classList.add('ready');
-     
+     if($('#show-map').checked)$('#fallback').hidden=true;
      addLayers();
      say('Open-source geographic map ready · locally stored railway segments: '+(state.rail?.features?.length||0));
    }
@@ -164,7 +187,7 @@ async function geographicalMap(){if(!$('#show-map').checked){say('Reference view
  new ResizeObserver(()=>m.resize()).observe($('#geo'));
  setTimeout(()=>{if(!loaded){try{m.remove()}catch{}state.map=null;$('#vector').classList.remove('ready');say('Geographic tiles were not confirmed. Reference signal-box schematic shown instead; not a physical track plan.',true)}},12500);
 }
-function onToggle(){markers();if(state.map)addLayers();if(!$('#show-map').checked){$('#vector').classList.remove('ready');} else if(state.map){$('#vector').classList.add('ready');}else if(state.dataReady)void geographicalMap();$('#offline-svg').style.opacity=$('#show-boxes').checked?'1':'.48';}
+function onToggle(){fallback();markers();if(state.map)addLayers();if(!$('#show-map').checked){$('#vector').classList.remove('ready');$('#fallback').hidden=false;} else if(state.map){$('#vector').classList.add('ready');}else if(state.dataReady)void geographicalMap();}
 function displayEvents(payload){if(!payload||!Array.isArray(payload.events))return;
  const age=Date.now()-new Date(payload.generated_at).getTime();
  const recentEvent=payload.events.length ? Math.max(...payload.events.map(e=>Date.parse(e.event_time)||0)) : 0;
@@ -182,10 +205,13 @@ async function pollLive(){const config=state.liveConfig;if(!config?.readEndpoint
  try {const response=await fetch(config.readEndpoint,{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!response.ok)throw Error('HTTP '+response.status);displayEvents(await response.json());}
  catch(e){$('#feed-status').textContent='LIVE TD · UNAVAILABLE';$('#live-summary').textContent='Feed read failed: '+e.message+'. No simulated events shown.';}}
 async function start(){
- try {const base=await json('./data/stockport-boxes.json');state.study=base.study;state.boxes=base.boxes;state.dataReady=true;drawBoxList();fallback();}
+ try {const base=await json('./data/stockport-boxes.json');state.study=base.study;state.boxes=base.boxes;state.dataReady=true;drawBoxList();}
  catch(e){say('Local reference data failed: '+e.message,true);return}
  const [rail,equipment,config]=await Promise.all([fetchOptional('./data/railway.geojson'),fetchOptional('./data/equipment.geojson'),fetchOptional('./data/live-config.json')]);
  state.rail=rail;state.equipment=equipment;state.liveConfig=config;
+ fallback();
+ $('#view-region').addEventListener('click',()=>svgView('region'));
+ $('#view-corridor').addEventListener('click',()=>svgView('corridor'));
  $('#rail-note').textContent=rail?.features?.length?rail.features.length+' local OSM track segments':'Track data import pending; do not infer routes';
  $('#equipment-note').textContent=equipment?.features?.length?equipment.features.length+' mapped assets':'No verified equipment records yet';
  say('Five reference locations loaded. Starting open-source geographical map…');
