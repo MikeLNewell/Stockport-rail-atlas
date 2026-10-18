@@ -45,6 +45,19 @@
     });
   }
   function addBasemap(map) { rasterBasemap(map); }
+  function layerHint(name, value) {
+    const element=document.querySelector('[data-layer-hint="' + name + '"]');
+    if (element) element.textContent=value;
+  }
+  function updateLayerHints() {
+    const zoom=state.map?.getZoom() ?? 0;
+    layerHint('railways',state.activeLayers.railways ? (railwayErrors>=4?'Tile service temporarily unavailable':'Track infrastructure · OpenRailwayMap'):'Hidden');
+    layerHint('signalTiles',state.activeLayers.signalTiles ? (zoom<15?'Zoom to level 15+ for signal detail':'Mapped signals · not live'):'Mapped equipment · not live');
+    layerHint('boxes',state.activeLayers.boxes ? 'Five signal-box markers':'Hidden');
+    layerHint('radius',state.activeLayers.radius ? '20-mile boundary visible':'Hidden');
+    layerHint('osmFeatures',state.activeLayers.osmFeatures ? (zoom<15?'Zoom to level 15+ for individual signals':state.fetchInProgress?'Fetching mapped equipment':state.OSM.length ? state.OSM.length+' mapped signals and points':'Detailed mapping may be incomplete'):'Hidden');
+    layerHint('drafts',state.activeLayers.drafts ? (state.research.length ? state.research.length+' unverified research drafts':'No research drafts saved'):'Hidden');
+  }
   function escapeHTML(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function validURL(s) { try { const u = new URL(s); return ['http:','https:'].includes(u.protocol); } catch { return false; } }
   function number(value) { return Number(value).toLocaleString('en-GB'); }
