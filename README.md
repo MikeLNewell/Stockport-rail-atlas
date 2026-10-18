@@ -11,7 +11,7 @@ An interactive railway infrastructure atlas centred on Stockport station, coveri
 - Provides a reference panel for each box with documented neighbours, descriptions, provenance, uncertainty notes and a conceptual corridor schematic.
 - Shows mapped OSM signals and points from the Overpass API at detailed zoom levels. These **do not** show live indications and are **not** presented as controlled by a particular box.
 - Lets researchers trace **unverified** draft boundaries on the map. Each saved draft requires a source URL, is kept in the current browser's local storage and can be exported as JSON.
-- Offers dark/light map styling, independent railway layers and mobile layouts.
+- Offers dark/light map styling of a key-free OpenStreetMap basemap, independent railway layers and mobile layouts.
 - Includes a PostgreSQL/PostGIS schema and tested Train Describer event parser to support later phases.
 
 ## Launch locally
@@ -26,6 +26,12 @@ python3 -m http.server 8765 --directory site
 Open http://localhost:8765 . Do not open the `index.html` file directly; the site fetches a local JSON dataset.
 
 Alternatively, use `npm run serve`. Run `npm test` for data integrity and TD parser tests.
+
+## Deploy to GitHub Pages
+
+GitHub Actions is configured in `.github/workflows/deploy-pages.yml` to publish the `site/` directory automatically on pushes to `main`. Under Settings → Pages, select **GitHub Actions**. The project URL is `https://mikelnewell.github.io/Stockport-rail-atlas/` once deployment succeeds.
+
+The basemap uses `tile.openstreetmap.org`, without a CARTO API key. Dark mode uses a CSS filter applied only to the base tiles. The OpenStreetMap Foundation tile servers have a [usage policy](https://operations.osmfoundation.org/policies/tiles/); this is suitable for modest educational traffic, not guaranteed capacity for a popular public service.
 
 ## Deploy to Netlify
 
@@ -80,8 +86,8 @@ site/data/stockport-boxes.json Evidence-backed corridor reference data
 - Detailed signal and point coverage depends on OSM mapping completeness and Overpass server availability.
 - Signal-box adjacency and historical routes are presented as reference information, not measured limits of control.
 - Research drafts are browser-local. Database-backed verified publishing and moderation are future work.
-- This project has not been deployed to a public domain.
+- The site is published through GitHub Pages when the GitHub Actions workflow succeeds.
 
 ## Attribution
 
-© OpenStreetMap contributors. Map styling from OpenRailwayMap (CC BY-SA 2.0) and CARTO, subject to their respective terms. Geograph locations are attributed via links to the original source. No OpenTrainTimes proprietary diagrams or data have been copied.
+© OpenStreetMap contributors. Railway overlays from OpenRailwayMap (CC BY-SA 2.0), subject to its terms. Geograph locations are attributed via links to the original source. No OpenTrainTimes proprietary diagrams or data have been copied.
