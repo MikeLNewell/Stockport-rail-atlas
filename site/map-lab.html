@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Stockport Rail Atlas | Open-source map preview</title>
+<link href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.3.0/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+:root{font:14px system-ui,-apple-system,sans-serif;color:#eaf0f8;background:#0b1523}
+*{box-sizing:border-box}body{margin:0}header{height:64px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 22px;background:#0b1523;border-bottom:1px solid #2d4056}
+header strong{font-size:18px;letter-spacing:1px}header span{font-size:12px;color:#91a9c0}
+button{cursor:pointer}main{display:grid;grid-template-columns:280px minmax(0,1fr);height:calc(100dvh - 64px);min-height:400px}
+aside{padding:22px;background:#102033;border-right:1px solid #2d4056;overflow:auto}
+h1{font-size:18px;margin:0 0 8px}p{line-height:1.6;color:#aabccc;font-size:12px}
+label{display:flex;gap:10px;align-items:center;margin:15px 0}label input{accent-color:#268dcc;width:17px;height:17px}
+#boxes button{display:block;width:100%;border:1px solid #37506c;background:#142c45;color:#deedff;text-align:left;border-radius:7px;padding:11px;margin:7px 0;font-size:12px}
+#map{width:100%;height:100%;position:relative;background:#dce5e7}
+.viewport{position:relative;min-width:0;min-height:0}
+.status{position:absolute;z-index:12;bottom:16px;left:15px;max-width:390px;padding:10px 13px;background:#101d2cf0;border:1px solid #37506c;color:#ddefff;border-radius:8px;font-size:12px}
+.pin{width:23px;height:23px;border-radius:5px;border:2px solid white;background:#178fc2;box-shadow:0 2px 8px #0006;cursor:pointer;display:grid;place-items:center;color:white;font-size:12px;font-weight:bold}
+.error{color:#ffb171}
+footer{margin-top:24px;font-size:11px;color:#8eabc1;line-height:1.6}
+.maplibregl-popup-content{background:white;color:#10233a;border-radius:8px;font:12px system-ui}
+@media(max-width:700px){main{grid-template-columns:1fr;grid-template-rows:220px minmax(320px,1fr);height:calc(100dvh - 64px)}aside{padding:10px 16px}header strong{font-size:13px}header span{font-size:10px}}
+</style>
+<script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@6.3.0/dist/maplibre-gl.js"></script>
+</head>
+<body>
+<header><strong>STOCKPORT RAIL ATLAS · MAP TEST</strong><span>Open-source vector mapping · no API key</span></header>
+<main>
+<aside>
+<h1>Infrastructure layers</h1>
+<p>Independent MapLibre map using OpenFreeMap, with local signal-box positions and optional railway overlays.</p>
+<label><input id="rail" type="checkbox">OpenRailwayMap railway tracks</label>
+<label><input id="signal" type="checkbox">OpenRailwayMap mapped signals</label>
+<label><input id="circle" type="checkbox" checked>20-mile boundary</label>
+<label><input id="pins" type="checkbox" checked>Five Stockport boxes</label>
+<label><input id="dark" type="checkbox">Dark basemap</label>
+<div id="boxes">Loading reference records…</div>
+<footer>Mapped symbols are not live signalling states. Signal control boundaries are unverified. Map data © OpenStreetMap contributors and OpenMapTiles. Railway overlays © OpenRailwayMap.</footer>
+</aside>
+<section class="viewport"><div id="map" aria-label="Interactive open-source Stockport railway map"></div><div id="status" class="status" role="status">Initialising map…</div></section>
+</main>
+<script>
+window.addEventListener('load', async () => {
+ const status=document.querySelector('#status');
+ const say=(s,bad=false)=>{status.textContent=s;status.classList.toggle('error',bad)};
+ let data;
+ try { const r=await fetch('./data/stockport-boxes.json'); if(!r.ok)throw Error('Reference data HTTP '+r.status);data=await r.json(); }
+ catch(e){say('Signal-box records unavailable: '+e.message,true);return;}
+ document.querySelector('#boxes').innerHTML='';
+ for(const b of data.boxes){const button=document.createElement('button');button.textContent=b.name;button.dataset.box=b.id;document.querySelector('#boxes').append(button);}
+ if(!window.maplibregl){say('MapLibre did not load from the mapping library CDN.',true);return;}
+ const mid=data.study.centre;
+ let map;
+ try {map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[mid[1],mid[0]],zoom:12.7,attributionControl:true,failIfMajorPerformanceCaveat:false});}
+ catch(e){say('Map could not start: '+e.message,true);return;}
+ map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+ const pins=[];
+ let loaded=false, errors=0;
+ const radius=()=>{const coords=[];const lat=mid[0]*Math.PI/180;const r=data.study.radiusMetres;for(let i=0;i<=128;i++){const a=2*Math.PI*i/128; const dlat=r/111320*Math.sin(a),dlon=r/(111320*Math.cos(lat))*Math.cos(a);coords.push([mid[1]+dlon,mid[0]+dlat]);}return {type:'Feature',properties:{},geometry:{type:'Polygon',coordinates:[coords]}};};
+ function updateLayer(name,visible){if(map.getLayer(name))map.setLayoutProperty(name,'visibility',visible?'visible':'none');}
+ function applyLayers(){
+  if(!map.isStyleLoaded())return;
+  if(!map.getSource('study-area'))map.addSource('study-area',{type:'geojson',data:radius()});
+  if(!map.getLayer('study-line'))map.addLayer({id:'study-line',type:'line',source:'study-area',paint:{'line-color':'#0073bf','line-width':3,'line-dasharray':[2,2]}});
+  updateLayer('study-line',document.querySelector('#circle').checked);
+  for(const item of [{id:'railways',check:'rail',url:'https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'},{id:'rail-signals',check:'signal',url:'https://tiles.openrailwaymap.org/signals/{z}/{x}/{y}.png'}]){
+   if(!document.querySelector('#'+item.check).checked)continue;
+   if(!map.getSource(item.id))map.addSource(item.id,{type:'raster',tiles:[item.url],tileSize:256,maxzoom:19,attribution:'© OpenRailwayMap'});
+   if(!map.getLayer(item.id))map.addLayer({id:item.id,type:'raster',source:item.id,paint:{'raster-opacity':.85}});
+  }
+ }
+ map.on('load',()=>{
+   loaded=true; say('OpenFreeMap loaded · Stockport · '+data.boxes.length+' reference boxes');
+   for(const b of data.boxes){
+     const el=document.createElement('div');el.className='pin';el.textContent='⌘';el.title=b.name;
+     const marker=new maplibregl.Marker({element:el}).setLngLat([b.coordinates[1],b.coordinates[0]]).setPopup(new maplibregl.Popup({offset:15}).setText(b.name+' · control boundaries unverified')).addTo(map);
+     pins.push(marker);
+   }
+   applyLayers();
+ });
+ map.on('error',ev=>{console.warn('Map source error',ev.error);if(++errors===3 && !loaded)say('Basemap connection failed. Check mapping requests.',true)});
+ document.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>{
+   if(input.id==='dark'){map.setStyle(input.checked?'https://tiles.openfreemap.org/styles/dark':'https://tiles.openfreemap.org/styles/liberty');map.once('style.load',applyLayers);}
+   else if(input.id==='pins')for(const p of pins)p.getElement().style.display=input.checked?'':'none';
+   else if(input.id==='circle')updateLayer('study-line',input.checked);
+   else applyLayers();
+ }));
+ document.querySelectorAll('#boxes button').forEach(button=>button.addEventListener('click',()=>{
+   const b=data.boxes.find(x=>x.id===button.dataset.box);map.flyTo({center:[b.coordinates[1],b.coordinates[0]],zoom:16,essential:true});
+ }));
+ new ResizeObserver(()=>map.resize()).observe(document.querySelector('.viewport'));
+ setTimeout(()=>{if(!loaded)say('Vector map has not finished loading. Check browser/WebGL and network.',true)},14000);
+});
+</script>
+</body></html>
