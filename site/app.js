@@ -299,15 +299,71 @@
       $$('[data-map-style]').forEach(x=>x.classList.toggle('mode-active',x.dataset.mapStyle===style));
     }));
   }
+  function loadScriptWithTimeout(source, timeoutMs=6500) {
+    return new Promise(resolve => {
+      if (window.L) return resolve(true);
+      const el=document.createElement('script');
+      el.src=source;el.async=true;el.referrerPolicy='strict-origin-when-cross-origin';
+      let finished=false;
+      const finish=(ok) => {
+        if (finished) return;
+        finished=true;
+        clearTimeout(timer);
+        el.onload=null;el.onerror=null;
+        if (!ok) el.remove();
+        resolve(ok && !!window.L);
+      };
+      const timer=setTimeout(()=>finish(false),timeoutMs);
+      el.onload=()=>finish(!!window.L);
+      el.onerror=()=>finish(false);
+      document.head.appendChild(el);
+    });
+  }
+  async function ensureLeaflet() {
+    if (window.L) return true;
+    const sources=[
+      'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+      'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'
+    ];
+    for (const source of sources) {
+      if (await loadScriptWithTimeout(source)) return true;
+      console.warn('Map library source unavailable:',source);
+    }
+    return false;
+  }
   async function start(){
-    bindUI();
     try {
-      const response=await fetch('./data/stockport-boxes.json',{cache:'no-cache'});
-      if(!response.ok)throw new Error('Could not load data file');
+      bindUI();
+    } catch (error) {
+      console.error('Controls initialisation problem:',error);
+    }
+    try {
+      const response=await fetch('./data/stockport-boxes.json',{cache:'no-store'});
+      if (!response.ok) throw new Error('Reference data request failed: '+response.status);
       state.data=await response.json();
-      populateList();initMap();
+      populateList();
       $('#count-verified').textContent=state.data.boxes.filter(b=>b.verifiedBoundary).length;
-    }catch(error){console.error(error);$('#box-list').innerHTML='<div class="loading-text">Unable to load the reference dataset. Run the site through a local HTTP server rather than opening index.html directly.</div>';toast('Could not load reference data. Use a local web server.');}
+    } catch(error) {
+      console.error('Reference data failed:',error);
+      $('#box-list').innerHTML='<div class="loading-text">Reference records could not be loaded. Reload the page to try again.</div>';
+      mapHealth('Unable to retrieve the local signal-box records.');
+      $('#map').innerHTML='<div class="map-placeholder">Reference data unavailable.</div>';
+      return;
+    }
+    $('#map').innerHTML='<div class="map-placeholder">Starting geographical map…</div>';
+    const ready=await ensureLeaflet();
+    if (!ready) {
+      $('#map').innerHTML='<div class="map-placeholder">The mapping library is currently unavailable. Signal-box records are still accessible on the left.</div>';
+      mapHealth('Mapping library could not load from either CDN. Please try reloading.');
+      return;
+    }
+    try {
+      initMap();
+    } catch(error) {
+      console.error('Map initialisation problem:',error);
+      $('#map').innerHTML='<div class="map-placeholder">Map could not initialise. Signal-box records remain available in the sidebar.</div>';
+      mapHealth('Map initialisation failed; please reload the page.');
+    }
   }
   start();
 })();
