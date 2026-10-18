@@ -8,3 +8,7 @@
 
 /* Dark appearance applied only to OSM basemap tiles; rail and signal overlays are untouched. */
 .atlas-basemap-dark .leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(.68) contrast(1.12)}
+
+/* Persistent notices for external map service failures. */
+.map-health{position:absolute;bottom:92px;left:50%;transform:translateX(-50%);max-width:min(650px,calc(100% - 42px));z-index:650;border:1px solid #a87939;background:#241d17ee;padding:10px 13px;border-radius:8px;color:#f2c580;font-size:11px;line-height:1.5;text-align:center;pointer-events:none}
+.map-health[hidden]{display:none}
