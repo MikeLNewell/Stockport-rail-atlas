@@ -8,26 +8,10 @@
   <title>Stockport Rail Atlas | Signalling and infrastructure</title>
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHMtLJQOdQhQ=" crossorigin="" />
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.3.0/dist/maplibre-gl.css" />
-  <link rel="stylesheet" href="./styles.css?v=layerfix-20261018-b" />
+  <link rel="stylesheet" href="./styles.css?v=stable-leaflet-20261018-1" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
-  <script type="importmap">
-    {"imports":{"leaflet":"https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js","maplibre-gl":"https://unpkg.com/maplibre-gl@6.3.0/dist/maplibre-gl.mjs"}}
-  </script>
-  <script type="module">
-    try {
-      window.L = await import('leaflet');
-      try {
-        const adapter = await import('https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/dist/leaflet-maplibre-gl.mjs');
-        window.openFreeMapLayer = adapter.maplibreGL;
-      } catch (error) {
-        console.warn('Vector map unavailable, falling back to OpenStreetMap tiles.', error);
-      }
-    } catch (error) {
-      console.error('Leaflet map library unavailable.', error);
-    }
-    await import('./app.js?v=layerfix-20261018-b');
-  </script>
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script defer src="./app.js?v=stable-leaflet-20261018-1"></script>
 </head>
 <body>
   <div id="app" class="app">
