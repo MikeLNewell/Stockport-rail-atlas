@@ -1,0 +1,11 @@
+{
+  "name": "stockport-rail-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Source-grounded geographic signalling atlas for Stockport and surrounding railways",
+  "scripts": {
+    "serve": "python3 -m http.server 8765 --directory site",
+    "test": "node --test tests/*.test.cjs",
+    "check": "node --check site/app.js && node --check worker/td-parser.cjs && node --check worker/td-bridge.cjs && npm test"
+  }
+}

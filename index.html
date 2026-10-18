@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta name="theme-color" content="#0b111c" />
+  <meta name="description" content="Explore Stockport's railways, signal boxes and documented control relationships within a 20-mile radius." />
+  <title>Stockport Rail Atlas | Signalling and infrastructure</title>
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHMtLJQOdQhQ=" crossorigin="" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <div id="app" class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Network explorer">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div><div class="brand-title">SIGNAL<span>ATLAS</span></div><div class="brand-subtitle">STOCKPORT / NORTH WEST</div></div>
+        <button class="mobile-close icon-button" id="close-sidebar" aria-label="Close menu">×</button>
+      </div>
+      <div class="side-scroll">
+        <div class="section-label"><span>STUDY AREA</span><span class="section-trailing">01 / 04</span></div>
+        <button id="focus-region" class="region-card active">
+          <span class="region-icon">◎</span><span class="region-title">Stockport network<small>20-mile radius · 32.19 km</small></span><span class="region-chevron">↗</span>
+        </button>
+        <div class="section-label space-top"><span>EXPLORE</span><span class="section-trailing">LAYERS</span></div>
+        <div class="layer-list" id="layer-list">
+          <label class="layer-option"><span class="swatch swatch-rail"></span><span>Railway infrastructure<small>OpenRailwayMap</small></span><input type="checkbox" data-layer="railways" checked /><span class="toggle"></span></label>
+          <label class="layer-option"><span class="swatch swatch-signals"></span><span>Signalling overlay<small>Mapped equipment, not live</small></span><input type="checkbox" data-layer="signalTiles" /><span class="toggle"></span></label>
+          <label class="layer-option"><span class="swatch swatch-boxes"></span><span>Signal boxes<small>Five Stockport boxes</small></span><input type="checkbox" data-layer="boxes" checked /><span class="toggle"></span></label>
+          <label class="layer-option"><span class="swatch swatch-boundary"></span><span>Study area boundary<small>20-mile circle</small></span><input type="checkbox" data-layer="radius" checked /><span class="toggle"></span></label>
+          <label class="layer-option"><span class="swatch swatch-points"></span><span>OSM signals & points<small>Detailed view only</small></span><input type="checkbox" data-layer="osmFeatures" checked /><span class="toggle"></span></label>
+          <label class="layer-option"><span class="swatch swatch-annotations"></span><span>Research boundaries<small>Saved local drafts</small></span><input type="checkbox" data-layer="drafts" checked /><span class="toggle"></span></label>
+        </div>
+        <div class="section-label space-top"><span>STOCKPORT CORRIDOR</span><span class="section-trailing">05 BOXES</span></div>
+        <div class="box-list" id="box-list"><div class="loading-text">Loading location records…</div></div>
+        <div class="section-label space-top"><span>REGIONAL BOX DISCOVERY</span><span class="section-trailing" id="regional-count">OSM</span></div>
+        <div class="box-list" id="regional-box-list"><div class="loading-text">Additional OSM-mapped boxes will be discovered where available. Their operational status is not independently verified.</div></div>
+        <div class="source-note"><span class="source-note-icon">ⓘ</span><span>Locations are referenced from published geographic records. Control limits are not presumed from the building locations.</span></div>
+      </div>
+      <div class="sidebar-bottom"><span class="status-dot"></span><span>PHASE 01 · INFRASTRUCTURE ATLAS</span><span class="version">v0.1</span></div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="topbar-left"><button id="open-sidebar" class="icon-button mobile-menu" aria-label="Open network explorer">☰</button><div class="crumb">NETWORK EXPLORER <span>/</span> <strong>STOCKPORT</strong></div></div>
+        <div class="topbar-right"><div class="data-pill"><span class="status-ring"></span> LIVE TD <strong>NOT CONNECTED</strong></div><button id="open-sources" class="outline-button">Data & sources <span>↗</span></button></div>
+      </header>
+      <div class="viewport" id="viewport">
+        <div class="map-toolbar">
+          <div class="map-title"><div class="eyebrow">NETWORK OVERVIEW</div><h1>Stockport rail network</h1><p>Explore infrastructure and signalling control across Greater Manchester.</p></div>
+          <div class="mode-control" role="group" aria-label="Map style"><button data-map-style="dark" class="mode-active">Dark</button><button data-map-style="light">Light</button></div>
+        </div>
+        <div id="map" aria-label="Interactive railway network map"><div class="map-placeholder">Loading railway map…</div></div>
+        <div class="map-overlay-top"><div class="map-indicator"><span class="indicator-circle"></span><span id="map-context">20-MILE STUDY AREA</span></div></div>
+        <div class="map-bottom-left"><div class="map-legend"><div class="legend-title">MAP KEY</div><div><i class="legend-box"></i> Signal box</div><div><i class="legend-study"></i> Study limit</div><div><i class="legend-research"></i> Research draft</div></div></div>
+        <div class="map-bottom-right"><button id="zoom-stockport" class="map-floating-button" title="Zoom to Stockport corridor">⌖ <span>Stockport corridor</span></button><button id="zoom-region" class="map-floating-button" title="Show full radius">◉ <span>20-mile area</span></button></div>
+      </div>
+      <section class="footer-status" aria-label="Data coverage">
+        <div class="footer-metric"><span class="footer-icon icon-amber">▦</span><span><strong id="count-boxes">5</strong><small>Reference signal boxes</small></span></div>
+        <div class="footer-metric"><span class="footer-icon icon-blue">◇</span><span><strong id="count-features">—</strong><small>OSM equipment nearby</small></span></div>
+        <div class="footer-metric"><span class="footer-icon icon-purple">⬡</span><span><strong id="count-verified">0</strong><small>Verified control boundaries</small></span></div>
+        <div class="footer-metric"><span class="footer-icon icon-grey">◷</span><span><strong>Not connected</strong><small>Real-time train feed</small></span></div>
+      </section>
+    </main>
+
+    <aside class="inspector" id="inspector" aria-label="Selected infrastructure details">
+      <div class="inspector-header"><div class="inspector-label">INFRASTRUCTURE DETAILS</div><button id="close-inspector" class="icon-button inspector-close" aria-label="Clear selection">×</button></div>
+      <div class="inspector-content" id="inspector-content">
+        <div class="inspector-empty"><div class="inspector-illustration"><span>╱╲</span><span>◇</span><span>╲╱</span></div><div class="empty-label">NO SELECTION</div><h2>Explore the network</h2><p>Select a signal box, railway signal or set of points to inspect its known infrastructure and supporting sources.</p><button class="primary-button" id="empty-start">Explore Stockport boxes ↗</button></div>
+      </div>
+      <div class="inspector-bottom"><span class="mini-shield">◇</span> Observation & education only<br />Not for safety-critical railway operations</div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-backdrop hidden" id="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-heading"><div class="modal-top"><div><div class="eyebrow">DATA PROVENANCE</div><h2 id="modal-heading">Sources and coverage</h2></div><button id="close-modal" class="icon-button" aria-label="Close sources">×</button></div><div class="modal-content">
+    <div class="info-panel"><strong>Current stage: infrastructure discovery</strong><p>The map uses OpenRailwayMap's cartographic overlays and may query OpenStreetMap through Overpass for separately identifiable signals and points. Those are static mapped features, not live railway states.</p></div>
+    <div class="source-group"><h3>External mapping</h3><a target="_blank" rel="noopener" href="https://www.openrailwaymap.org/">OpenRailwayMap ↗</a><a target="_blank" rel="noopener" href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors ↗</a><a target="_blank" rel="noopener" href="https://wiki.openstreetmap.org/wiki/OpenRailwayMap/API">Rail tile documentation ↗</a></div>
+    <div class="source-group"><h3>Signal box research</h3><a target="_blank" rel="noopener" href="https://farsap.co.uk/StockportCorridor.php">Film Archive of Railway Signalling & People ↗</a><a target="_blank" rel="noopener" href="https://www.s-r-s.org.uk/Audio/stockport2.php">Signalling Record Society, Stockport No. 2 historical study ↗</a></div>
+    <div class="source-group"><h3>Planned live feeds</h3><a target="_blank" rel="noopener" href="https://www.networkrail.co.uk/who-we-are/transparency-and-ethics/transparency/open-data-feeds/">Network Rail Open Data ↗</a><a target="_blank" rel="noopener" href="https://wiki.openraildata.com/index.php?title=TD">Train Describer documentation ↗</a></div>
+    <div class="info-panel subtle"><p>Signal box markers reflect published locations, not surveyed control boundaries. OSM equipment labels are community contributed and might be incomplete or outdated. A user research draft is never considered verified.</p></div>
+  </div><div class="modal-foot"><button id="export-research" class="outline-button">↓ Export research JSON</button><button id="modal-done" class="primary-button">Done</button></div></div></div>
+</body>
+</html>
