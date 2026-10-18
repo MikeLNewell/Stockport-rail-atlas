@@ -125,7 +125,7 @@
     });
     state.signalTileLayer=L.tileLayer(URLS.signals,{pane:'railway-signals',maxZoom:19,opacity:.96,referrerPolicy:'strict-origin-when-cross-origin',attribution:'OpenRailwayMap signals, static OSM data'});
     // The boundary and centre point are one managed layer so the checkbox hides both.
-    state.studyLayer=L.layerGroup([
+    state.studyLayer=L.featureGroup([
       L.circle(centre,{radius:radiusMetres,weight:2,color:'#62adc6',dashArray:'7 8',opacity:.9,fillColor:'#5294c6',fillOpacity:.018,interactive:false}),
       L.circleMarker(centre,{radius:5,color:'#eafaff',weight:2,fillColor:'#66c2ef',fillOpacity:.9})
         .bindTooltip('Stockport station · centre of study',{className:'map-label',direction:'bottom',offset:[0,8]})
