@@ -54,14 +54,14 @@ input[type=checkbox]{accent-color:#358bb8;height:18px;width:18px;flex:none}
 <aside>
 <h2>STOCKPORT NETWORK</h2>
 <div class="control"><div><strong>Street-map background (optional)</strong><small>OpenFreeMap · railway SVG works without it</small></div><input type="checkbox" id="show-map" aria-label="Enable geographic basemap"></div>
-<div class="control"><div><strong>Railway linework</strong><small id="rail-note">Locally stored OpenStreetMap geometry</small></div><input type="checkbox" id="show-rail" checked aria-label="Show railway linework"></div>
+<div class="control"><div><strong>Railway linework</strong><small id="rail-note">Locally stored licensed railway reference geometry</small></div><input type="checkbox" id="show-rail" checked aria-label="Show railway linework"></div>
 <div class="control"><div><strong>Signal boxes</strong><small>Five documented Stockport locations</small></div><input type="checkbox" id="show-boxes" checked aria-label="Show signal boxes"></div>
 <div class="control"><div><strong>20-mile study boundary</strong><small>32.19 km geographical radius</small></div><input type="checkbox" id="show-radius" checked aria-label="Show study boundary"></div>
 <div class="control"><div><strong>Mapped signals and points</strong><small id="equipment-note">Only where verified source data exists</small></div><input type="checkbox" id="show-equipment" checked aria-label="Show mapped signalling equipment"></div>
 <div class="section">SIGNALLING LOCATIONS</div>
 <div id="box-list"><p class="hint">Loading locally held signal-box records…</p></div>
 <div class="section">DATA QUALITY</div>
-<p class="hint">Signal-box locations are sourced. Exact signalling control boundaries and berth positions remain unverified. Train Describer events are not GPS positions.</p>
+<p class="hint">Signal-box locations are sourced. Exact signalling control boundaries and berth positions remain unverified. Train Describer events are not GPS positions.</p><p class="hint">Railway geography: <a href="https://github.com/raileasyuk/railway-gis-data" target="_blank" rel="noopener noreferrer" style="color:#86cafd">Raileasy railway GIS</a>, derived from Network Rail Open Government Licence data, distributed under CC BY-SA 4.0. These are simplified reference lines, not track-by-track signalling plans.</p>
 </aside>
 <section class="viewport" aria-label="Railway network map">
 <div id="geo">
