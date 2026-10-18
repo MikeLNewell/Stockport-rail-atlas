@@ -74,6 +74,20 @@
       rasterBasemap(map);
     }
   }
+
+  function layerHint(name, text) {
+    const el = document.querySelector('[data-layer-hint="' + name + '"]');
+    if (el) el.textContent = text;
+  }
+  function updateLayerHints() {
+    const zoom=state.map?.getZoom() ?? 0;
+    layerHint('railways', state.activeLayers.railways ? (railwayErrors>=4?'Tile service unavailable':'Track infrastructure · OpenRailwayMap') : 'Hidden');
+    layerHint('signalTiles', state.activeLayers.signalTiles ? (zoom<15?'Zoom to level 15+ for signal detail':'OSM signal symbols · not live') : 'Mapped equipment · not live');
+    layerHint('boxes', state.activeLayers.boxes ? 'Five pinned boxes · selectable' : 'Hidden');
+    layerHint('radius', state.activeLayers.radius ? '20-mile study boundary visible' : 'Hidden');
+    layerHint('osmFeatures', state.activeLayers.osmFeatures ? (zoom<15?'Zoom to level 15+ for individual signals':state.fetchInProgress?'Fetching mapped equipment':state.OSM.length?`${state.OSM.length} mapped signals and points`:'Mapped equipment · query on zoom') : 'Hidden');
+    layerHint('drafts', state.activeLayers.drafts ? (state.research.length?`${state.research.length} unverified research drafts`:'No drafts saved yet') : 'Hidden');
+  }
   function escapeHTML(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function validURL(s) { try { const u = new URL(s); return ['http:','https:'].includes(u.protocol); } catch { return false; } }
   function number(value) { return Number(value).toLocaleString('en-GB'); }
@@ -81,7 +95,7 @@
     try { const r=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); return Array.isArray(r) ? r.filter(d=>Array.isArray(d.geometry)&&typeof d.boxId==='string') : []; }
     catch { return []; }
   }
-  function saveResearch() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(state.research)); } catch { toast('Browser storage unavailable. Export your research to retain it.'); } }
+  function saveResearch() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(state.research)); } catch { toast('Browser storage unavailable. Export your research to retain it.'); } updateLayerHints(); }
   function toast(msg) { const el=$('#toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimeout); toastTimeout=setTimeout(()=>el.classList.remove('show'),4800); }
   function fmtCoords(coords) { return `${coords[0].toFixed(5)}° N, ${Math.abs(coords[1]).toFixed(5)}° W`; }
   function makeLink(url, text='View source') { return validURL(url) ? `<a class="source-link" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">↗ ${escapeHTML(text)}</a>` : ''; }
@@ -92,26 +106,37 @@
     $('#map').innerHTML='';
     const map=L.map('map',{zoomControl:true,attributionControl:true,preferCanvas:true,worldCopyJump:false,minZoom:7,maxZoom:19}).setView(centre,13);
     state.map=map;
+    // Put railway and signalling tiles above the vector basemap but below markers and annotations.
+    map.createPane('railway-tracks');
+    map.getPane('railway-tracks').style.zIndex='335';
+    map.getPane('railway-tracks').style.pointerEvents='none';
+    map.createPane('railway-signals');
+    map.getPane('railway-signals').style.zIndex='345';
+    map.getPane('railway-signals').style.pointerEvents='none';
     if (window.ResizeObserver) {
       const observer = new ResizeObserver(() => requestAnimationFrame(() => map.invalidateSize({pan:false,animate:false})));
       observer.observe($('#map'));
     }
     requestAnimationFrame(() => map.invalidateSize({pan:false,animate:false}));
     addBasemap(map);
-    state.railLayer=L.tileLayer(URLS.railway,{maxZoom:19,opacity:.88,referrerPolicy:'strict-origin-when-cross-origin',attribution:'Style: <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a> (CC BY-SA), data: OpenStreetMap contributors'}).addTo(map);
+    state.railLayer=L.tileLayer(URLS.railway,{pane:'railway-tracks',maxZoom:19,opacity:.88,referrerPolicy:'strict-origin-when-cross-origin',attribution:'Style: <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a> (CC BY-SA), data: OpenStreetMap contributors'}).addTo(map);
     state.railLayer.on('tileerror',() => {
       if (++railwayErrors === 4) mapHealth('OpenRailwayMap railway tiles could not load. Try again later or turn off the railway overlay.');
     });
-    state.signalTileLayer=L.tileLayer(URLS.signals,{maxZoom:19,opacity:.9,referrerPolicy:'strict-origin-when-cross-origin',attribution:'OpenRailwayMap signals, static OSM data'});
-    state.studyLayer=L.circle(centre,{radius:radiusMetres,weight:2,color:'#62adc6',dashArray:'7 8',opacity:.75,fillColor:'#5294c6',fillOpacity:.018,interactive:false}).addTo(map);
-    L.circleMarker(centre,{radius:5,color:'#eafaff',weight:2,fillColor:'#66c2ef',fillOpacity:.9}).addTo(map).bindTooltip('Stockport station · centre of study', {className:'map-label',direction:'bottom',offset:[0,8]});
+    state.signalTileLayer=L.tileLayer(URLS.signals,{pane:'railway-signals',maxZoom:19,opacity:.96,referrerPolicy:'strict-origin-when-cross-origin',attribution:'OpenRailwayMap signals, static OSM data'});
+    // The boundary and centre point are one managed layer so the checkbox hides both.
+    state.studyLayer=L.layerGroup([
+      L.circle(centre,{radius:radiusMetres,weight:2,color:'#62adc6',dashArray:'7 8',opacity:.9,fillColor:'#5294c6',fillOpacity:.018,interactive:false}),
+      L.circleMarker(centre,{radius:5,color:'#eafaff',weight:2,fillColor:'#66c2ef',fillOpacity:.9})
+        .bindTooltip('Stockport station · centre of study',{className:'map-label',direction:'bottom',offset:[0,8]})
+    ]).addTo(map);
     state.boxesLayer=L.layerGroup().addTo(map);
     state.regionalBoxLayer=L.layerGroup().addTo(map);
     state.osmLayer=L.layerGroup().addTo(map);
     state.researchLayer=L.layerGroup().addTo(map);
     state.drawingLayer=L.layerGroup().addTo(map);
     drawBoxes(); drawResearch();
-    map.on('moveend zoomend', () => { if (state.activeLayers.osmFeatures) scheduleFetchOSM(); });
+    map.on('moveend zoomend', () => { if (state.activeLayers.osmFeatures) scheduleFetchOSM(); updateLayerHints(); });
     map.on('click', e => {
       if (!state.drawActive) return;
       state.drawPoints.push([+e.latlng.lat.toFixed(6),+e.latlng.lng.toFixed(6)]);
@@ -120,6 +145,7 @@
     $('#map-context').textContent='20-MILE STUDY AREA';
     scheduleFetchOSM();
     fetchRegionalBoxes();
+    updateLayerHints();
   }
   function drawBoxes() {
     state.boxesLayer.clearLayers(); state.markers.clear();
@@ -147,6 +173,7 @@
     if (state.activeLayers.osmFeatures) scheduleFetchOSM();
     if (state.regionalBoxLayer) { if(state.activeLayers.boxes && !state.map.hasLayer(state.regionalBoxLayer))state.regionalBoxLayer.addTo(state.map);if(!state.activeLayers.boxes && state.map.hasLayer(state.regionalBoxLayer))state.regionalBoxLayer.remove(); }
     $('#count-features').textContent=state.OSM.length ? number(state.OSM.length):'—';
+    updateLayerHints();
   }
   function zoomCorridor(){ state.map?.flyTo([53.4057,-2.1645],14,{duration:.65}); }
   function zoomRegion(){ if (!state.map)return; state.map.flyToBounds(state.studyLayer.getBounds(),{duration:.75,padding:[24,24]}); }
@@ -218,18 +245,19 @@
   async function fetchOSM(){
     if(!state.map||!state.activeLayers.osmFeatures)return;
     const zoom=state.map.getZoom();
-    if(zoom<14){state.OSM=[];state.osmLayer.clearLayers();$('#count-features').textContent='Zoom in';return;}
+    if(zoom<15){state.OSM=[];state.osmLayer.clearLayers();$('#count-features').textContent='Zoom in';updateLayerHints();return;}
     const b=state.map.getBounds();const centre=state.data.study.centre;
     // Overpass requests are deliberately limited to detailed map views near the study area.
     const sw=b.getSouthWest(), ne=b.getNorthEast();
-    if(b.getNorth()-b.getSouth()>0.07 || b.getEast()-b.getWest()>0.11){$('#count-features').textContent='Zoom in';return;}
+    if(b.getNorth()-b.getSouth()>0.15 || b.getEast()-b.getWest()>0.20){$('#count-features').textContent='Zoom in';updateLayerHints();return;}
     const bbox=[sw.lat,sw.lng,ne.lat,ne.lng].map(v=>v.toFixed(3)).join(',');
     const cacheKey=bbox;
     if(state.lastOSMQuery===cacheKey||state.fetchInProgress)return;
     state.fetchInProgress=true;
     $('#count-features').textContent='Loading';
+    updateLayerHints();
     const q=`[out:json][timeout:17];(node["railway"~"^(signal|switch)$"](${bbox}););out body;`;
-    const mirrors=['https://overpass.kumi.systems/api/interpreter','https://overpass.nchc.org.tw/api/interpreter','https://overpass-api.de/api/interpreter'];
+    const mirrors=['https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
     let result=null;
     for(const endpoint of mirrors){
       const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),11500);
@@ -241,7 +269,7 @@
       }catch(err){clearTimeout(timer);console.warn('OSM endpoint temporarily unavailable:',err.message);}
     }
     state.fetchInProgress=false;
-    if(!result){$('#count-features').textContent='Unavailable';return;}
+    if(!result){$('#count-features').textContent='Unavailable';layerHint('osmFeatures','OSM data unavailable · retry on map movement');return;}
     state.lastOSMQuery=cacheKey;state.OSM=result.elements.filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon)&&x.tags);
     state.osmLayer.clearLayers();
     for(const item of state.OSM){
@@ -250,11 +278,12 @@
       pin.on('click',()=>selectOSMFeature(item));pin.bindTooltip(item.tags.ref||item.tags.name||(signal?'Signal (OSM)':'Points (OSM)'),{className:'map-label'});pin.addTo(state.osmLayer);
     }
     $('#count-features').textContent=number(state.OSM.length);
+    layerHint('osmFeatures',state.OSM.length?`${state.OSM.length} mapped signals and points`:'No mapped signals or points in this view');
   }
   async function fetchRegionalBoxes(){
     const {centre,radiusMetres}=state.data.study;
     const q=`[out:json][timeout:25];(node["railway"="signal_box"](around:${Math.round(radiusMetres)},${centre[0]},${centre[1]});way["railway"="signal_box"](around:${Math.round(radiusMetres)},${centre[0]},${centre[1]}););out center tags;`;
-    const urls=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+    const urls=['https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter'];
     let elements=null;
     for(const url of urls){
       const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),17000);
@@ -282,7 +311,15 @@
     const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='stockport-signal-box-research.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Research drafts exported as JSON.');
   }
   function bindUI(){
-    $$('#layer-list input').forEach(el=>el.addEventListener('change',()=>{state.activeLayers[el.dataset.layer]=el.checked;syncLayers();}));
+    $('#layer-list input').forEach(el=>el.addEventListener('change',()=>{
+      const layerName=el.dataset.layer;
+      state.activeLayers[layerName]=el.checked;
+      syncLayers();
+      if(el.checked && (layerName==='signalTiles'||layerName==='osmFeatures') && state.map && state.map.getZoom()<15) {
+        state.map.flyTo(state.data.study.centre,16,{duration:.65});
+        toast('Zooming into Stockport to show detailed mapped signals and points.');
+      }
+    }));
     $('#focus-region').addEventListener('click',zoomRegion);
     $('#zoom-region').addEventListener('click',zoomRegion);
     $('#zoom-stockport').addEventListener('click',zoomCorridor);
